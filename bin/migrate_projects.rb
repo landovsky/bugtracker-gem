@@ -110,12 +110,14 @@ class ProjectMigrator
       end
 
       # Check if project can safely switch to main
+      skip_reason = nil
       Dir.chdir(project_path) do
         skip_reason = check_git_safety
-        if skip_reason
-          skipped_projects[project_path] = skip_reason
-          next
-        end
+      end
+
+      if skip_reason
+        skipped_projects[project_path] = skip_reason
+        next
       end
 
       projects_to_migrate << project_path
