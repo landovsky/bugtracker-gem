@@ -21,7 +21,7 @@
 
 1. **Add to Gemfile:**
    ```ruby
-   gem 'bug_tracker', git: 'https://github.com/[username]/bug-tracker'
+   gem 'bug_tracker', git: 'https://github.com/landovsky/bugtracker-gem'
    ```
 
 2. **Install:**
@@ -55,7 +55,7 @@
 Just add to Gemfile and it works:
 
 ```ruby
-gem 'bug_tracker', git: 'https://github.com/[username]/bug-tracker'
+gem 'bug_tracker', git: 'https://github.com/landovsky/bugtracker-gem'
 gem 'sentry-ruby'  # Optional: if using Sentry
 ```
 

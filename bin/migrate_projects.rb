@@ -16,7 +16,7 @@ require 'json'
 
 class ProjectMigrator
   PROJECTS_DIR = File.expand_path('~/git/projects')
-  GEM_REPO_URL = 'https://github.com/yourusername/bug-tracker' # TODO: Update this after creating GitHub repo
+  GEM_REPO_URL = 'https://github.com/landovsky/bugtracker-gem'
 
   attr_reader :dry_run, :log_file, :projects_to_migrate
 

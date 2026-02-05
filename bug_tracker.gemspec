@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
 
   spec.summary = "Unified error tracking adapter for Rails applications"
   spec.description = "A flexible error tracking gem that provides a unified interface for multiple error tracking providers (Sentry, Bugsnag, etc.) with integrated BaseError support."
-  spec.homepage = "https://github.com/yourusername/bug-tracker"
+  spec.homepage = "https://github.com/landovsky/bugtracker-gem"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 2.7.0"
 

@@ -27,4 +27,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BugTracker::BaseError` - Base error class with context and JSON serialization
 - Extensible adapter pattern for adding new providers
 
-[0.1.0]: https://github.com/yourusername/bug-tracker/releases/tag/v0.1.0
+[0.1.0]: https://github.com/landovsky/bugtracker-gem/releases/tag/v0.1.0

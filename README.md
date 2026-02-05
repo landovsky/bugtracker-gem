@@ -17,7 +17,7 @@ A unified, extensible error tracking gem for Rails applications. Provides a clea
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'bug_tracker', git: 'https://github.com/yourusername/bug-tracker'
+gem 'bug_tracker', git: 'https://github.com/landovsky/bugtracker-gem'
 ```
 
 And then execute:
@@ -286,7 +286,7 @@ extra_context = {} unless extra_context.is_a?(Hash)
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/yourusername/bug-tracker.
+Bug reports and pull requests are welcome on GitHub at https://github.com/landovsky/bugtracker-gem.
 
 ## License
 

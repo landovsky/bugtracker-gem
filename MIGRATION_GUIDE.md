@@ -21,7 +21,7 @@ If you prefer to migrate manually or need to customize the process:
 Add to your `Gemfile`:
 
 ```ruby
-gem 'bug_tracker', git: 'https://github.com/yourusername/bug-tracker'
+gem 'bug_tracker', git: 'https://github.com/landovsky/bugtracker-gem'
 ```
 
 Run:
