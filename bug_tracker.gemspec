@@ -5,8 +5,8 @@ require_relative "lib/bug_tracker/version"
 Gem::Specification.new do |spec|
   spec.name = "bug_tracker"
   spec.version = BugTracker::VERSION
-  spec.authors = ["Your Name"]
-  spec.email = ["your.email@example.com"]
+  spec.authors = ["Tomáš Landovsky"]
+  spec.email = ["landovsky@gmail.com"]
 
   spec.summary = "Unified error tracking adapter for Rails applications"
   spec.description = "A flexible error tracking gem that provides a unified interface for multiple error tracking providers (Sentry, Bugsnag, etc.) with integrated BaseError support."
