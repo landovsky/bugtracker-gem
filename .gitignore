@@ -54,3 +54,5 @@ Gemfile.lock
 *.swo
 *~
 .DS_Store
+
+.beads/export-state/*
