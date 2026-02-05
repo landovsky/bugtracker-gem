@@ -18,12 +18,13 @@ class ProjectMigrator
   PROJECTS_DIR = File.expand_path('~/git/projects')
   GEM_REPO_URL = 'https://github.com/landovsky/bugtracker-gem'
 
-  attr_reader :dry_run, :log_file, :projects_to_migrate
+  attr_reader :dry_run, :log_file, :projects_to_migrate, :skipped_projects
 
   def initialize(dry_run: false)
     @dry_run = dry_run
     @log_file = File.expand_path('~/git/gems/bug-tracker/migration.log')
     @projects_to_migrate = []
+    @skipped_projects = {}
 
     setup_logging
   end
@@ -37,8 +38,21 @@ class ProjectMigrator
 
     find_projects
 
-    if projects_to_migrate.empty?
+    if projects_to_migrate.empty? && skipped_projects.empty?
       log "No projects found with bug_tracker.rb"
+      return
+    end
+
+    if skipped_projects.any?
+      log "Skipped #{skipped_projects.size} projects:"
+      skipped_projects.each do |path, reason|
+        log "  - #{File.basename(path)}: #{reason}"
+      end
+      log ""
+    end
+
+    if projects_to_migrate.empty?
+      log "No projects to migrate (all projects either already migrated or have issues)"
       return
     end
 
@@ -85,9 +99,26 @@ class ProjectMigrator
         File.join(project_path, 'lib/bug_tracker.rb')
       ]
 
-      if bug_tracker_paths.any? { |path| File.exist?(path) }
-        projects_to_migrate << project_path
+      has_bug_tracker = bug_tracker_paths.any? { |path| File.exist?(path) }
+      next unless has_bug_tracker
+
+      # Check if gem is already installed
+      gemfile_path = File.join(project_path, 'Gemfile')
+      if File.exist?(gemfile_path) && File.read(gemfile_path).include?("gem 'bug_tracker'")
+        skipped_projects[project_path] = "Already has bug_tracker gem installed"
+        next
       end
+
+      # Check if project can safely switch to main
+      Dir.chdir(project_path) do
+        skip_reason = check_git_safety
+        if skip_reason
+          skipped_projects[project_path] = skip_reason
+          next
+        end
+      end
+
+      projects_to_migrate << project_path
     end
   end
 
@@ -96,11 +127,18 @@ class ProjectMigrator
     log "\n--- Preview: #{project_name} ---"
 
     Dir.chdir(project_path) do
-      # Check git status
-      status = `git status --porcelain`.strip
-      unless status.empty?
-        log "  ⚠️  WARNING: Working directory is not clean"
-        log "  Git status:\n#{status.lines.map { |l| "    #{l}" }.join}"
+      # Check git safety
+      skip_reason = check_git_safety
+      if skip_reason
+        log "  ⚠️  WOULD SKIP: #{skip_reason}"
+        return
+      end
+
+      # Check if gem already installed
+      gemfile_path = File.join(project_path, 'Gemfile')
+      if File.exist?(gemfile_path) && File.read(gemfile_path).include?("gem 'bug_tracker'")
+        log "  ⚠️  WOULD SKIP: Gem already installed"
+        return
       end
 
       # Find files to remove
@@ -118,15 +156,8 @@ class ProjectMigrator
         log "    ... and #{base_error_refs.size - 5} more" if base_error_refs.size > 5
       end
 
-      # Check Gemfile
-      gemfile_path = File.join(project_path, 'Gemfile')
-      if File.exist?(gemfile_path)
-        if File.read(gemfile_path).include?("gem 'bug_tracker'")
-          log "  ⚠️  Gemfile already has bug_tracker gem"
-        else
-          log "  Will add to Gemfile: gem 'bug_tracker', git: '#{GEM_REPO_URL}'"
-        end
-      end
+      # Show what will be added to Gemfile
+      log "  Will add to Gemfile: gem 'bug_tracker', git: '#{GEM_REPO_URL}'"
     end
   end
 
@@ -135,16 +166,39 @@ class ProjectMigrator
     log "\n--- Migrating: #{project_name} ---"
 
     Dir.chdir(project_path) do
-      # Check git status
-      status = `git status --porcelain`.strip
-      unless status.empty?
-        log "  ❌ ERROR: Working directory is not clean. Skipping."
+      # Check git safety
+      skip_reason = check_git_safety
+      if skip_reason
+        log "  ❌ SKIPPING: #{skip_reason}"
+        skipped_projects[project_path] = skip_reason
+        return
+      end
+
+      # Check if gem already installed
+      gemfile_path = File.join(project_path, 'Gemfile')
+      if File.exist?(gemfile_path) && File.read(gemfile_path).include?("gem 'bug_tracker'")
+        log "  ❌ SKIPPING: Gem already installed"
+        skipped_projects[project_path] = "Already has bug_tracker gem installed"
         return
       end
 
       # Get current branch
       current_branch = `git branch --show-current`.strip
       log "  Current branch: #{current_branch}"
+
+      # Switch to main if not already there
+      unless current_branch == 'main' || current_branch == 'master'
+        default_branch = `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`.strip.sub('refs/remotes/origin/', '')
+        default_branch = 'main' if default_branch.empty?
+
+        log "  Switching to #{default_branch} branch..."
+        unless system("git checkout #{default_branch} 2>&1 >/dev/null")
+          log "  ❌ ERROR: Failed to switch to #{default_branch}. Skipping."
+          skipped_projects[project_path] = "Could not switch to #{default_branch}"
+          return
+        end
+        current_branch = default_branch
+      end
 
       # Create new branch
       branch_name = "chore/migrate-to-bug-tracker-gem"
@@ -284,11 +338,6 @@ class ProjectMigrator
 
     content = File.read(gemfile_path)
 
-    if content.include?("gem 'bug_tracker'")
-      log "  Gemfile already has bug_tracker gem"
-      return
-    end
-
     # Add gem after sentry-ruby if it exists, otherwise at the end
     gem_line = "gem 'bug_tracker', git: '#{GEM_REPO_URL}'\n"
 
@@ -336,12 +385,58 @@ class ProjectMigrator
     log ""
   end
 
+  def check_git_safety
+    # Check for uncommitted changes
+    status = `git status --porcelain`.strip
+    unless status.empty?
+      return "Has uncommitted changes"
+    end
+
+    # Get current branch
+    current_branch = `git branch --show-current`.strip
+
+    # If not on main, check if we can safely switch
+    unless current_branch == 'main' || current_branch == 'master'
+      # Try to determine the default branch
+      default_branch = `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null`.strip.sub('refs/remotes/origin/', '')
+      default_branch = 'main' if default_branch.empty?
+
+      # Check if we can switch to main/master
+      main_exists = system("git rev-parse --verify #{default_branch} >/dev/null 2>&1")
+      unless main_exists
+        # Try 'master' if 'main' doesn't exist
+        default_branch = 'master'
+        main_exists = system("git rev-parse --verify #{default_branch} >/dev/null 2>&1")
+      end
+
+      unless main_exists
+        return "Cannot find main or master branch"
+      end
+
+      # Check if switching would lose work
+      unpushed = `git log origin/#{default_branch}..#{current_branch} 2>/dev/null`.strip
+      unless unpushed.empty?
+        return "Current branch '#{current_branch}' has unpushed commits"
+      end
+    end
+
+    nil # No issues
+  end
+
   def print_summary
     log "\n" + "=" * 80
     log "Migration Complete"
     log "=" * 80
     log "Log file: #{log_file}"
     log ""
+
+    if skipped_projects.any?
+      log "Skipped Projects (#{skipped_projects.size}):"
+      skipped_projects.each do |path, reason|
+        log "  - #{File.basename(path)}: #{reason}"
+      end
+      log ""
+    end
 
     unless dry_run
       log "Next steps for each project:"
