@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'logger'
+
 module BugTracker
   class Configuration
     attr_accessor :adapter, :logger, :enabled_environments, :backtrace_filter, :development_mode
