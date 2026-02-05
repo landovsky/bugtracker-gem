@@ -1,55 +1,13 @@
-Migration started at 2026-02-05 09:38:26 +0100
+Migration started at 2026-02-05 09:46:17 +0100
 ================================================================================
 BugTracker Gem Migration Script
 Mode: DRY RUN
+Project: agreemate
 ================================================================================
 
-Skipped 4 projects:
-  - pharmacy: Has uncommitted changes
-  - remai: Has uncommitted changes
-  - siposervis: Has uncommitted changes
-  - medicmee-pac: Has uncommitted changes
-
-Found 7 projects to migrate:
-  - medicmee-doc
-  - pharmacy
-  - hriste
-  - hriste-sync
-  - remai
-  - siposervis
-  - medicmee-pac
-
-DRY RUN: No changes will be made
-
---- Preview: medicmee-doc ---
-  Files to remove:
-    - lib/bug_tracker.rb
-    - app/models/base_error.rb
-  Files with BaseError references (1):
-    - app/domains/documents/services/process_document.rb
-  Will add to Gemfile: gem 'bug_tracker', git: 'https://github.com/landovsky/bugtracker-gem'
-
---- Preview: pharmacy ---
-  ⚠️  WOULD SKIP: Has uncommitted changes
-
---- Preview: hriste ---
-  Files to remove:
-    - app/models/bug_tracker.rb
-    - app/models/base_error.rb
-  Files with BaseError references (5):
-    - app/services/excel_adapter.rb
-    - app/services/migration/protocol/reader/zavady.rb
-    - app/services/raynet_client.rb
-    - app/services/webhook_processor/raynet.rb
-    - spec/models/base_error_spec.rb
-  Will add to Gemfile: gem 'bug_tracker', git: 'https://github.com/landovsky/bugtracker-gem'
-
---- Preview: hriste-sync ---
-  Files to remove:
-    - app/models/bug_tracker.rb
-  Will add to Gemfile: gem 'bug_tracker', git: 'https://github.com/landovsky/bugtracker-gem'
-
---- Preview: remai ---
-  ⚠️  WOULD SKIP: Has uncommitted changes
-
---- Preview: siposervis ---
+ERROR: Project 'agreemate' does not have bug_tracker.rb
+Checked locations:
+  - agreemate/app/models/bug_tracker.rb
+  - agreemate/app/services/bug_tracker.rb
+  - agreemate/lib/bug_tracker.rb
+No projects found with bug_tracker.rb

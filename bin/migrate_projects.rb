@@ -18,10 +18,11 @@ class ProjectMigrator
   PROJECTS_DIR = File.expand_path('~/git/projects')
   GEM_REPO_URL = 'https://github.com/landovsky/bugtracker-gem'
 
-  attr_reader :dry_run, :log_file, :projects_to_migrate, :skipped_projects
+  attr_reader :dry_run, :log_file, :projects_to_migrate, :skipped_projects, :project_name
 
-  def initialize(dry_run: false)
+  def initialize(dry_run: false, project_name: nil)
     @dry_run = dry_run
+    @project_name = project_name
     @log_file = File.expand_path('~/git/gems/bug-tracker/migration.log')
     @projects_to_migrate = []
     @skipped_projects = {}
@@ -33,6 +34,7 @@ class ProjectMigrator
     log "=" * 80
     log "BugTracker Gem Migration Script"
     log "Mode: #{dry_run ? 'DRY RUN' : 'LIVE'}"
+    log "Project: #{project_name || 'ALL'}"
     log "=" * 80
     log ""
 
@@ -85,6 +87,22 @@ class ProjectMigrator
   def find_projects
     return unless Dir.exist?(PROJECTS_DIR)
 
+    # If specific project requested, check only that project
+    if project_name
+      project_path = File.join(PROJECTS_DIR, project_name)
+      unless Dir.exist?(project_path)
+        log "ERROR: Project '#{project_name}' not found in #{PROJECTS_DIR}"
+        return
+      end
+      unless Dir.exist?(File.join(project_path, '.git'))
+        log "ERROR: Project '#{project_name}' is not a git repository"
+        return
+      end
+      check_and_add_project(project_path)
+      return
+    end
+
+    # Otherwise, scan all projects
     Dir.entries(PROJECTS_DIR).each do |dir|
       next if dir.start_with?('.')
 
@@ -92,36 +110,49 @@ class ProjectMigrator
       next unless Dir.exist?(project_path)
       next unless Dir.exist?(File.join(project_path, '.git'))
 
-      # Check if project has bug_tracker.rb
-      bug_tracker_paths = [
-        File.join(project_path, 'app/models/bug_tracker.rb'),
-        File.join(project_path, 'app/services/bug_tracker.rb'),
-        File.join(project_path, 'lib/bug_tracker.rb')
-      ]
-
-      has_bug_tracker = bug_tracker_paths.any? { |path| File.exist?(path) }
-      next unless has_bug_tracker
-
-      # Check if gem is already installed
-      gemfile_path = File.join(project_path, 'Gemfile')
-      if File.exist?(gemfile_path) && File.read(gemfile_path).include?("gem 'bug_tracker'")
-        skipped_projects[project_path] = "Already has bug_tracker gem installed"
-        next
-      end
-
-      # Check if project can safely switch to main
-      skip_reason = nil
-      Dir.chdir(project_path) do
-        skip_reason = check_git_safety
-      end
-
-      if skip_reason
-        skipped_projects[project_path] = skip_reason
-        next
-      end
-
-      projects_to_migrate << project_path
+      check_and_add_project(project_path)
     end
+  end
+
+  def check_and_add_project(project_path)
+    # Check if project has bug_tracker.rb
+    bug_tracker_paths = [
+      File.join(project_path, 'app/models/bug_tracker.rb'),
+      File.join(project_path, 'app/services/bug_tracker.rb'),
+      File.join(project_path, 'lib/bug_tracker.rb')
+    ]
+
+    has_bug_tracker = bug_tracker_paths.any? { |path| File.exist?(path) }
+
+    # If specific project requested and it doesn't have bug_tracker, report error
+    if project_name && !has_bug_tracker
+      log "ERROR: Project '#{project_name}' does not have bug_tracker.rb"
+      log "Checked locations:"
+      bug_tracker_paths.each { |path| log "  - #{path.sub(PROJECTS_DIR + '/', '')}" }
+      return
+    end
+
+    return unless has_bug_tracker
+
+    # Check if gem is already installed
+    gemfile_path = File.join(project_path, 'Gemfile')
+    if File.exist?(gemfile_path) && File.read(gemfile_path).include?("gem 'bug_tracker'")
+      skipped_projects[project_path] = "Already has bug_tracker gem installed"
+      return
+    end
+
+    # Check if project can safely switch to main
+    skip_reason = nil
+    Dir.chdir(project_path) do
+      skip_reason = check_git_safety
+    end
+
+    if skip_reason
+      skipped_projects[project_path] = skip_reason
+      return
+    end
+
+    projects_to_migrate << project_path
   end
 
   def preview_migration(project_path)
@@ -452,7 +483,7 @@ class ProjectMigrator
 end
 
 # Parse command line options
-options = { dry_run: false }
+options = { dry_run: false, project_name: nil }
 
 OptionParser.new do |opts|
   opts.banner = "Usage: migrate_projects.rb [options]"
@@ -461,12 +492,22 @@ OptionParser.new do |opts|
     options[:dry_run] = true
   end
 
+  opts.on("-p PROJECT", "--project PROJECT", "Migrate only the specified project") do |project|
+    options[:project_name] = project
+  end
+
   opts.on("-h", "--help", "Show this help message") do
     puts opts
+    puts ""
+    puts "Examples:"
+    puts "  migrate_projects.rb --dry-run                    # Preview all projects"
+    puts "  migrate_projects.rb --project hriste --dry-run   # Preview single project"
+    puts "  migrate_projects.rb --project hriste             # Migrate single project"
+    puts "  migrate_projects.rb                              # Migrate all projects"
     exit
   end
 end.parse!
 
 # Run migration
-migrator = ProjectMigrator.new(dry_run: options[:dry_run])
+migrator = ProjectMigrator.new(dry_run: options[:dry_run], project_name: options[:project_name])
 migrator.run
